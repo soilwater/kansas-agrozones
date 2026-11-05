@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kansas Environments</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div><h1>Kansas environments</h1><div class="tag">Group Kansas into environments from climate and soil layers.</div></div>
+    <nav><button data-open="dlg-how">How it works</button> <button data-open="dlg-layers">Layers</button> <button data-open="dlg-corr">Correlations</button> <button data-open="dlg-about">About</button></nav>
+  </header>
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Layers</h2>
+        <table class="layers" id="layers"></table>
+      </div>
+      <div class="panel">
+        <h2>Zones</h2>
+        <div class="row"><span>Macrozones</span><select id="k1"></select></div>
+        <div class="row"><span>Microzones per macrozone</span><select id="k2"></select></div>
+        <div class="row"><span>Clean small patches</span><select id="smooth"><option value="0">no</option><option value="1" selected>3 × 3 km</option><option value="2">5 × 5 km</option></select></div>
+        <button class="go" id="go">Create environments</button>
+        <div class="status" id="status"></div>
+      </div>
+      <div class="panel" id="crop-panel" hidden>
+        <h2>Crop mask <small class="muted">optional, after the zones</small></h2>
+        <div class="row"><span>Crop</span><select id="crop"><option value="">none (all of Kansas)</option></select></div>
+        <div class="row"><span>Keep the top counties holding</span><select id="keep">
+          <option value="50">50% of its area</option><option value="75">75% of its area</option><option value="90" selected>90% of its area</option>
+          <option value="95">95% of its area</option><option value="99">99% of its area</option></select></div>
+        <div class="status" id="crop-status"></div>
+      </div>
+      <div class="panel">
+        <h2>Download</h2>
+        <div class="row" style="flex-wrap:wrap; justify-content:flex-start"><button class="dl" id="dl-csv">Zone table (CSV)</button><button class="dl" id="dl-tif">Zone map (GeoTIFF)</button></div>
+      </div>
+    </div>
+    <div>
+      <div class="bar">
+        <label><input type="checkbox" id="cty" checked> Counties</label>
+      </div>
+      <div class="map" id="map"><canvas id="cv"></canvas><svg id="ov" preserveAspectRatio="none"></svg></div>
+      <div id="readout">Hover over the map to read the layers at a point.</div>
+      <div class="tablewrap"><table class="zones" id="zones"></table></div>
+    </div>
+  </div>
+</div>
+
+<dialog id="dlg-how"><div class="hd"><h3>How it works</h3><button aria-label="close">×</button></div><div class="bd">
+  <ol>
+    <li><b>Pick layers.</b> Send each layer to the <b>macro</b> step (climate, which changes slowly across the state) or the <b>micro</b> step (soil, which changes from field to field), or leave it off. With no micro layers, the result is one pooled clustering of the macro layers.</li>
+    <li><b>Standardize.</b> Every layer is converted to z-scores over the whole state (subtract the Kansas mean, divide by the standard deviation), so each layer counts equally whatever its units.</li>
+    <li><b>Macrozones.</b> The macro layers are clustered into the chosen number of macrozones.</li>
+    <li><b>Microzones.</b> Inside each macrozone, the micro layers are clustered again. Every microzone therefore sits inside one macrozone, and changing the soil layers never moves a macrozone boundary.</li>
+    <li><b>Clean small patches</b> (optional). A majority filter replaces each pixel with the most common zone in a 3 × 3 or 5 × 5 km window, which removes isolated pixels.</li>
+    <li><b>Crop mask</b> (optional). Keeps only the counties where a crop is grown, without changing the zones: they are still made from the whole state, so a zone keeps the same meaning whatever crop is chosen.</li>
+  </ol>
+  <h4>Crop mask</h4>
+  <p>Crop areas come from the USDA NASS Cropland Data Layer (CDL), summed by county and averaged over <span id="crop-years"></span>. Counties are ranked by their crop area, and the largest are kept until together they hold the chosen share of the Kansas area of that crop. For example, <i>winter wheat, 90%</i> keeps the fewest counties that together grow 90% of the state's wheat. The other counties are greyed out on the map and left out of the zone table and the downloads.</p>
+  <p>Double crops count toward both crops (for example, wheat followed by soybeans counts as wheat and as soybeans). Rangeland is the CDL Grass/Pasture and Shrubland classes, which also include hay meadows, pastures and Conservation Reserve Program grass. The <i>crop %</i> column of the zone table spreads each county's crop area evenly over the county, so it is a guide to how much of the crop each zone holds, not a field-level measure.</p>
+  <h4>Method</h4>
+  <p><b>k-means</b> puts each pixel in the zone with the nearest centre and moves the centres until they settle (k-means++ starts, best of three).</p>
+  <h4>How many zones</h4>
+  <p>The silhouette score compares, for each pixel, the distance to its own zone with the distance to the nearest other zone. It runs from −1 to 1; higher means better-separated zones, and values above about 0.5 indicate clear structure. Scores are computed for each number of zones on a sample of 20,000 pixels (scored on 3,000 of them); <i>auto</i> picks the highest. Kansas climate is a smooth gradient, so the macro scores are often nearly flat. When they are, the number of zones is a choice about how much detail is useful, not something the data decide.</p>
+  <h4>Correlated layers</h4>
+  <p>Layers that are correlated (see Correlations) give extra weight to the gradient they share when they are in the same step. That is reasonable when each one stands for a different process, such as water supply (rainfall) and water demand (ETo).</p>
+  <h4>Numbers and colours</h4>
+  <p>Macrozones are numbered by the mean of the first macro layer in the list, from low to high (with rainfall first, from dry to wet). Microzones are numbered the same way by the first micro layer. Each macrozone has its own hue; its microzones are lighter and darker shades of it. Zone codes are macrozone.microzone, for example 2.1.</p>
+  <h4>Downloads</h4>
+  <p>The CSV lists every zone with its area and the mean of every layer, plus the settings used. The zone-map GeoTIFF is on the 1-km grid (EPSG:4326), with value = macrozone × 10 + microzone and 0 outside Kansas. With a crop mask, both cover only the kept counties (0 elsewhere in the GeoTIFF), and the CSV adds the crop share of each zone and lists the kept counties.</p>
+</div></dialog>
+
+<dialog id="dlg-layers"><div class="hd"><h3>Layers</h3><button aria-label="close">×</button></div><div class="bd"><div style="overflow-x:auto"><table id="layer-info"></table></div>
+  <div id="crop-info-wrap" hidden><h4>Crop areas</h4><p id="crop-info-src"></p><div style="overflow-x:auto"><table id="crop-info"></table></div></div>
+</div></dialog>
+
+<dialog id="dlg-corr"><div class="hd"><h3>Correlations between layers</h3><button aria-label="close">×</button></div><div class="bd">
+  <p>Pearson r across all Kansas pixels (blue positive, orange negative). Correlated layers in the same step give extra weight to the gradient they share.</p>
+  <div style="overflow-x:auto"><table class="corr" id="corr"></table></div>
+</div></dialog>
+
+<dialog id="dlg-about"><div class="hd"><h3>About</h3><button aria-label="close">×</button></div><div class="bd">
+  <p>The page groups Kansas into environments (agro-ecological zones) from climate and soil layers, for uses such as choosing trial and breeding sites, scaling point crop-model runs, or placing monitoring stations. Everything runs in your browser on a 1-km grid (273,579 pixels); nothing is uploaded. The water-balance layers (deficit-days and surplus-days) come from the Kansas 1-km soil moisture model.</p>
+  <p id="built"></p>
+  <h4>References</h4>
+  <ul>
+    <li>Sexton-Bowser, S., Roozeboom, K., Patrignani, A. (2026). Delineating hierarchical agro-ecological zones for crop production environments in Kansas. <i>Agricultural and Forest Meteorology</i> 378, 110999. <a href="https://doi.org/10.1016/j.agrformet.2025.110999" target="_blank" rel="noopener">doi:10.1016/j.agrformet.2025.110999</a></li>
+    <li>Rousseeuw, P.J. (1987). Silhouettes: a graphical aid to the interpretation and validation of cluster analysis. <i>Journal of Computational and Applied Mathematics</i> 20, 53–65.</li>
+    <li>Arthur, D., Vassilvitskii, S. (2007). k-means++: the advantages of careful seeding. <i>Proceedings of the 18th ACM-SIAM Symposium on Discrete Algorithms</i>, 1027–1035.</li>
+  </ul>
+  <h4>Data</h4>
+  <p>PRISM Climate Group, Oregon State University (rainfall, temperature); gridMET (reference ET); USDA-NRCS SSURGO, gridded by the California Soil Resource Lab (soil); US Census TIGER (county boundaries); USDA NASS Cropland Data Layer (county crop areas for the crop mask). See <a class="link" data-open="dlg-layers">Layers</a> for each layer's definition and period.</p>
+</div></dialog>
+
+<script src="js/app.js"></script>
+</body>
+</html>
