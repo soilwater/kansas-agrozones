@@ -18,10 +18,10 @@ function init() {
   cellArea = VALID.map(i => Math.cos((lat0 + dy * (Math.floor(i / META.cols) + 0.5)) * Math.PI / 180));
   const tb = $('layers');
   META.layers.forEach(L => {
-    step[L.key] = L.step;
+    step[L.key] = L.key === 'ppt' ? 'macro' : 'off';   // start simple: rainfall only, as an example
     const tr = tb.insertRow();
     const td = tr.insertCell(); td.innerHTML = `${L.name.length > 22 ? short(L.name) : L.name} <small>${L.units}</small>`; td.title = L.name;
-    tr.insertCell().innerHTML = `<span class="seg" data-k="${L.key}">${['off', 'macro', 'micro'].map(s => `<button data-s="${s}" class="${s === L.step ? 'on' : ''}">${s}</button>`).join('')}</span>`;
+    tr.insertCell().innerHTML = `<span class="seg" data-k="${L.key}">${['off', 'macro', 'micro'].map(s => `<button data-s="${s}" class="${s === step[L.key] ? 'on' : ''}">${s}</button>`).join('')}</span>`;
   });
   tb.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
     step[b.parentNode.dataset.k] = b.dataset.s;

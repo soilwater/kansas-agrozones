@@ -39,19 +39,19 @@ Then open http://localhost:8000. Any static host (for example GitHub Pages) work
 
 ## Layers
 
-| layer | units | source | default step |
-|---|---|---|---|
-| Annual rainfall | mm | PRISM 1991–2020 normal | macro |
-| Annual reference ET | mm | gridMET 1991–2020 mean (ASCE grass reference) | macro |
-| Aridity index | rainfall / ETo | computed | off |
-| Atmospheric water deficit | mm, ETo − rainfall | computed | off |
-| Growing degree days | °C·d | PRISM daily 1991–2020, base 10 °C, Tmax capped at 30 °C, Tmin floored at 10 °C | macro |
-| Deficit-days | FAW-days per year | Kansas 1-km soil moisture model, median of 2002–2025 | off |
-| Surplus-days | FAW-days per year | Kansas 1-km soil moisture model, median of 2002–2025 | off |
-| Plant available water capacity | mm, 0–60 cm | −10 kPa to wilting point, SSURGO texture | micro |
-| Soil organic matter | kg m⁻², whole profile | SSURGO (CSRL) | micro |
-| Clay | %, 0–60 cm | SSURGO (CSRL) | micro |
-| Sand | %, 0–60 cm | SSURGO (CSRL) | off |
+| layer | units | source |
+|---|---|---|
+| Annual rainfall | mm | PRISM 1991–2020 normal |
+| Annual reference ET | mm | gridMET 1991–2020 mean (ASCE grass reference) |
+| Aridity index | rainfall / ETo | computed |
+| Atmospheric water deficit | mm, ETo − rainfall | computed |
+| Growing degree days | °C·d | PRISM daily 1991–2020, base 10 °C, Tmax capped at 30 °C, Tmin floored at 10 °C |
+| Deficit-days | FAW-days per year | Kansas 1-km soil moisture model, median of 2002–2025 |
+| Surplus-days | FAW-days per year | Kansas 1-km soil moisture model, median of 2002–2025 |
+| Plant available water capacity | mm, 0–60 cm | −10 kPa to wilting point, SSURGO texture |
+| Soil organic matter | kg m⁻², whole profile | SSURGO (CSRL) |
+| Clay | %, 0–60 cm | SSURGO (CSRL) |
+| Sand | %, 0–60 cm | SSURGO (CSRL) |
 
 FAW is the fraction of plant available water in 0–60 cm. The yearly deficit-days are Σ max(0, 0.5 − FAW), and surplus-days are Σ max(0, FAW − 0.5).
 
