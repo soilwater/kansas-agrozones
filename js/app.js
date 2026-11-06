@@ -20,7 +20,7 @@ function init() {
   META.layers.forEach(L => {
     step[L.key] = L.step;
     const tr = tb.insertRow();
-    tr.insertCell().innerHTML = `${L.name} <small>${L.units}</small>`;
+    const td = tr.insertCell(); td.innerHTML = `${L.name.length > 22 ? short(L.name) : L.name} <small>${L.units}</small>`; td.title = L.name;
     tr.insertCell().innerHTML = `<span class="seg" data-k="${L.key}">${['off', 'macro', 'micro'].map(s => `<button data-s="${s}" class="${s === L.step ? 'on' : ''}">${s}</button>`).join('')}</span>`;
   });
   tb.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
@@ -37,9 +37,10 @@ function init() {
   $('ov').innerHTML = `<path d="${META.counties.join('')}" fill="none" stroke="#fff" stroke-width="0.7" vector-effect="non-scaling-stroke" opacity="0.85"/>`;
   $('cty').onchange = e => { $('ov').style.display = e.target.checked ? '' : 'none'; };
   $('cv').addEventListener('mousemove', readout);
-  $('cv').addEventListener('mouseleave', () => $('readout').textContent = 'Hover over the map to read the layers at a point.');
-  $('go').onclick = () => { const b = $('go'); b.textContent = 'Working…'; b.disabled = true; setTimeout(() => { try { run(); } finally { b.textContent = 'Create environments'; b.disabled = false; } }, 30); };
-  $('dl-csv').onclick = downloadCSV; $('dl-tif').onclick = () => LAB && save(geotiff(LAB.map((v, i) => kept(i) ? v : 0), META.cols, META.rows, META.transform), 'kansas_environments.tif');
+  $('cv').addEventListener('mouseleave', () => $('tip').hidden = true);
+  addEventListener('scroll', () => $('tip').hidden = true, { passive: true });
+  $('go').onclick = () => { const b = $('go'); b.textContent = 'Working…'; b.disabled = true; setTimeout(() => { try { run(); } finally { b.textContent = 'Create zones'; b.disabled = false; } }, 30); };
+  $('dl-csv').onclick = downloadCSV; $('dl-tif').onclick = () => LAB && save(geotiff(LAB.map((v, i) => kept(i) ? v : 0), META.cols, META.rows, META.transform), 'kansas_agrozones.tif');
   document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); $(b.dataset.open).showModal(); });
   document.querySelectorAll('dialog').forEach(d => { d.querySelector('.hd button').onclick = () => d.close(); d.addEventListener('click', e => { if (e.target === d) d.close(); }); });
   layerInfo(); corrTable(); $('built').textContent = `Layers built ${META.built}.`;
@@ -207,7 +208,7 @@ function run() {
   }
   $('status').innerHTML = `<h5>Silhouette, macrozones</h5>${silChart(curve, K1)}` +
     (uj.length ? `<h5>Silhouette, microzones</h5>${silTable(mcurves)}` : '<h5>No micro layers</h5>One pooled clustering of the macro layers.') +
-    '<div style="margin-top:4px">Higher = better-separated zones. Dark bar or shaded cell = number used; bold = highest.</div>';
+    '<ul class="key"><li>Higher: better-separated zones</li><li>Dark bar or shaded cell: number used</li><li>Bold: highest score</li></ul>';
   smooth(+$('smooth').value); cropMask();
 }
 
@@ -233,7 +234,6 @@ function cropSetup() {
   if (!CROPS) return;
   $('crop-panel').hidden = false;
   CROPS.crops.forEach(c => $('crop').add(new Option(c.name, c.key)));
-  $('crop-years').textContent = `${CROPS.years[0]}–${CROPS.years[1]}`;
   CPX = new Float64Array(META.county_names.length + 1); VALID.forEach((i, n) => CPX[CID[i]] += cellArea[n]);
   $('crop').onchange = $('keep').onchange = cropMask;
   $('crop-info-wrap').hidden = false; cropInfo();
@@ -299,14 +299,20 @@ function table() {
   $('zones').innerHTML = h;
 }
 
+// hover card next to the pointer
 function readout(e) {
-  const b = e.target.getBoundingClientRect(), x = Math.floor((e.clientX - b.left) / b.width * META.cols), y = Math.floor((e.clientY - b.top) / b.height * META.rows), i = y * META.cols + x;
-  if (x < 0 || y < 0 || x >= META.cols || y >= META.rows || RAW[i] === 255) { $('readout').textContent = 'Outside Kansas.'; return; }
-  const code = LAB ? LAB[i] : 0, m = Math.floor(code / 10), pooled = K2m.every(k => k === 1);
+  const b = e.target.getBoundingClientRect(), x = Math.floor((e.clientX - b.left) / b.width * META.cols), y = Math.floor((e.clientY - b.top) / b.height * META.rows), i = y * META.cols + x, tip = $('tip');
+  if (x < 0 || y < 0 || x >= META.cols || y >= META.rows || RAW[i] === 255 || !LAB) { tip.hidden = true; return; }
+  const code = LAB[i], m = Math.floor(code / 10), pooled = K2m.every(k => k === 1), on = kept(i);
   const lon = META.transform[2] + (x + 0.5) * META.transform[0], lat = META.transform[5] + (y + 0.5) * META.transform[4];
-  const crop = CROP ? ` · ${CROP.name} ${fmtHa(CROP.ha[CID[i] - 1])} a year${kept(i) ? '' : ' (county not kept)'}` : '';
-  $('readout').innerHTML = `<b>Zone ${m}${pooled ? '' : '.' + code % 10}</b> · ${META.county_names[CID[i] - 1] || ''} County${crop} · ${lat.toFixed(3)}°N ${(-lon).toFixed(3)}°W<br>` +
-    META.layers.map((L, j) => `${short(L.name)} ${num(val(j, i))} ${L.units}`).join(' · ');
+  tip.innerHTML = `<div class="t1"><span class="sw" style="background:${on ? colour(code) : '#e2e5e9'}"></span><b>Zone ${m}${pooled ? '' : '.' + code % 10}</b><span>${META.county_names[CID[i] - 1]} County</span></div>` +
+    `<div class="t2">${lat.toFixed(3)}°N, ${(-lon).toFixed(3)}°W</div>` +
+    (CROP ? `<div class="t3">${CROP.name}: ${fmtHa(CROP.ha[CID[i] - 1])} a year${on ? '' : ' · not kept'}</div>` : '') +
+    `<table>${META.layers.map((L, j) => `<tr class="${step[L.key] === 'off' ? 'off' : ''}"><td>${short(L.name)}</td><td>${num(val(j, i))}</td><td>${L.units}</td></tr>`).join('')}</table>`;
+  tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight, gap = 16;
+  tip.style.left = (e.clientX + gap + w > innerWidth ? e.clientX - gap - w : e.clientX + gap) + 'px';
+  tip.style.top = Math.max(4, Math.min(e.clientY + gap, innerHeight - h - 4)) + 'px';
 }
 
 // ---------- downloads ----------
@@ -320,7 +326,7 @@ function downloadCSV() {
   for (const s of STATS) out.push([s.macro ? s.code / 10 : `${Math.floor(s.code / 10)}.${s.code % 10}`, s.macro ? 'macro' : 'micro', s.area.toFixed(2), ...(CROP ? [s.crop.toFixed(2)] : []), ...s.mean.map(v => v.toFixed(3))].join(','));
   out.push(`# settings: ${settings()}`);
   if (KEEP) out.push(`# counties kept: ${META.county_names.filter((nm, c) => KEEP[c + 1]).join('; ')}`);
-  save(new Blob([out.join('\n')], { type: 'text/csv' }), 'kansas_environments.csv');
+  save(new Blob([out.join('\n')], { type: 'text/csv' }), 'kansas_agrozones.csv');
 }
 
 // minimal single-band uint8 GeoTIFF (one strip, uncompressed, EPSG:4326, nodata 0)

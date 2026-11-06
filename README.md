@@ -1,12 +1,12 @@
-# Kansas environments
+# Kansas AgroZones
 
-A web app that groups Kansas into environments (agro-ecological zones) from climate and soil layers. Users choose the layers, the number of zones, and whether each layer drives the climate (macro) or soil (micro) step. The app runs everything in the browser on a 1-km grid (273,579 pixels).
+A web app that groups Kansas into environments (agro-ecological zones) from climate and soil layers. Users choose the layers, the number of zones, and whether each layer goes in the macro step, the micro step, or neither. The app runs everything in the browser on a 1-km grid (273,579 pixels).
 
 Zoning is hierarchical:
-1. **Macrozones:** k-means on climate layers.
-2. **Microzones:** inside each macrozone, k-means again on soil layers, so every microzone sits inside one macrozone.
+1. **Macrozones:** k-means on the macro layers, a first split of the state.
+2. **Microzones** (optional): inside each macrozone, k-means again on the micro layers, so every microzone sits inside one macrozone.
 
-With no micro layers, the result is one pooled clustering. Layers are z-scored over the state. Silhouette scores for each number of zones are shown as a guide.
+Any layer can go in either step. With no micro layers, all chosen layers are clustered together in one step. Layers are z-scored over the state. Silhouette scores for each number of zones are shown as a guide.
 
 An optional **crop mask** then keeps only the counties where a crop is grown: counties are ranked by their area of the crop, and the largest are kept until together they hold a chosen share (50–99%) of the Kansas area of that crop. The zones themselves are still made from the whole state, so a breeder can zone Kansas once and then look only at, say, the counties that grow 90% of the state's winter wheat. Crops: winter wheat, corn, soybeans, grain sorghum, alfalfa and rangeland.
 
