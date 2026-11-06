@@ -44,7 +44,7 @@ function init() {
   document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { document.querySelectorAll('dialog[open]').forEach(d => d.close()); $(b.dataset.open).showModal(); });
   document.querySelectorAll('dialog').forEach(d => { d.querySelector('.hd button').onclick = () => d.close(); d.addEventListener('click', e => { if (e.target === d) d.close(); }); });
   layerInfo(); corrTable(); $('built').textContent = `Layers built ${META.built}.`;
-  cropSetup();
+  maskSetup();
   run();
 }
 
@@ -229,10 +229,34 @@ function smooth(r) {
   LAB = out;
 }
 
-// ---------- crop mask ----------
+// ---------- masks: crop (by county) and soil texture (by pixel) ----------
+const TEXTURES = ['Sand', 'Loamy sand', 'Sandy loam', 'Loam', 'Silt loam', 'Silt', 'Sandy clay loam', 'Clay loam', 'Silty clay loam', 'Sandy clay', 'Silty clay', 'Clay'];
+let TEX = null, TXSEL = 0;   // USDA texture class of each pixel (1-12, index into TEXTURES + 1), chosen class (0 = all)
+function texClass(s, c) {    // USDA texture triangle from sand and clay (%)
+  const t = 100 - s - c;
+  if (t + 1.5 * c < 15) return 1;
+  if (t + 2 * c < 30) return 2;
+  if ((c >= 7 && c < 20 && s > 52) || (c < 7 && t < 50)) return 3;
+  if (c >= 7 && c < 27 && t >= 28 && t < 50 && s <= 52) return 4;
+  if ((t >= 50 && c >= 12 && c < 27) || (t >= 50 && t < 80 && c < 12)) return 5;
+  if (t >= 80 && c < 12) return 6;
+  if (c >= 20 && c < 35 && t < 28 && s > 45) return 7;
+  if (c >= 27 && c < 40 && s > 20 && s <= 45) return 8;
+  if (c >= 27 && c < 40 && s <= 20) return 9;
+  if (c >= 35 && s > 45) return 10;
+  if (c >= 40 && t >= 40) return 11;
+  return 12;
+}
+function maskSetup() {
+  const js = META.layers.findIndex(L => L.key === 'sand'), jc = META.layers.findIndex(L => L.key === 'clay'), area = new Float64Array(13);
+  TEX = new Uint8Array(N); VALID.forEach((i, n) => { TEX[i] = texClass(val(js, i), val(jc, i)); area[TEX[i]] += cellArea[n]; });
+  [...area.keys()].filter(k => area[k] > 0).sort((a, b) => area[b] - area[a]).forEach(k => $('tex').add(new Option(TEXTURES[k - 1], k)));
+  $('tex').onchange = () => { TXSEL = +$('tex').value; draw(); table(); };
+  cropSetup();
+}
 function cropSetup() {
   if (!CROPS) return;
-  $('crop-panel').hidden = false;
+  $('crop-rows').hidden = false;
   CROPS.crops.forEach(c => $('crop').add(new Option(c.name, c.key)));
   CPX = new Float64Array(META.county_names.length + 1); VALID.forEach((i, n) => CPX[CID[i]] += cellArea[n]);
   $('crop').onchange = $('keep').onchange = cropMask;
@@ -259,7 +283,7 @@ function cropInfo() {
   $('crop-info').innerHTML = h;
   $('crop-info-src').textContent = `${CROPS.source}, mean of ${CROPS.years[0]}–${CROPS.years[1]}, summed by county. Used by the crop mask.`;
 }
-const kept = i => !KEEP || KEEP[CID[i]] === 1;
+const kept = i => (!KEEP || KEEP[CID[i]] === 1) && (!TXSEL || TEX[i] === TXSEL);
 const fmtHa = v => v >= 1e6 ? (v / 1e6).toFixed(2) + ' million ha' : Math.round(v).toLocaleString('en-US') + ' ha';
 
 // ---------- drawing ----------
@@ -306,8 +330,9 @@ function readout(e) {
   const code = LAB[i], m = Math.floor(code / 10), pooled = K2m.every(k => k === 1), on = kept(i);
   const lon = META.transform[2] + (x + 0.5) * META.transform[0], lat = META.transform[5] + (y + 0.5) * META.transform[4];
   tip.innerHTML = `<div class="t1"><span class="sw" style="background:${on ? colour(code) : '#e2e5e9'}"></span><b>Zone ${m}${pooled ? '' : '.' + code % 10}</b><span>${META.county_names[CID[i] - 1]} County</span></div>` +
-    `<div class="t2">${lat.toFixed(3)}°N, ${(-lon).toFixed(3)}°W</div>` +
-    (CROP ? `<div class="t3">${CROP.name}: ${fmtHa(CROP.ha[CID[i] - 1])} a year${on ? '' : ' · not kept'}</div>` : '') +
+    `<div class="t2">${lat.toFixed(3)}°N, ${(-lon).toFixed(3)}°W${on ? '' : ' · masked'}</div>` +
+    `<div class="t3">Soil texture: ${TEXTURES[TEX[i] - 1].toLowerCase()}</div>` +
+    (CROP ? `<div class="t3">${CROP.name}: ${fmtHa(CROP.ha[CID[i] - 1])} a year</div>` : '') +
     `<table>${META.layers.map((L, j) => `<tr class="${step[L.key] === 'off' ? 'off' : ''}"><td>${short(L.name)}</td><td>${num(val(j, i))}</td><td>${L.units}</td></tr>`).join('')}</table>`;
   tip.hidden = false;
   const w = tip.offsetWidth, h = tip.offsetHeight, gap = 16;
@@ -319,7 +344,7 @@ function readout(e) {
 function save(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); }
 function settings() {
   return META.layers.filter(L => step[L.key] !== 'off').map(L => `${L.key}:${step[L.key]}`).join(' ') + ` k1:${K1} k2:${K2m.join('/')} smooth:${$('smooth').value}` +
-    (CROP ? ` crop:${CROP.key} keep:${$('keep').value}% (CDL ${CROPS.years[0]}-${CROPS.years[1]})` : '');
+    (CROP ? ` crop:${CROP.key} keep:${$('keep').value}% (CDL ${CROPS.years[0]}-${CROPS.years[1]})` : '') + (TXSEL ? ` texture:${TEXTURES[TXSEL - 1].toLowerCase()}` : '');
 }
 function downloadCSV() {
   const out = [['zone', 'level', 'area_pct', ...(CROP ? [`${CROP.key}_pct`] : []), ...META.layers.map(L => `${L.key}_${L.units.replace(/[^a-zA-Z%]/g, '')}`)].join(',')];

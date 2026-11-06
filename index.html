@@ -27,12 +27,15 @@
         <button class="go" id="go">Create zones</button>
         <div class="status" id="status"></div>
       </div>
-      <div class="panel" id="crop-panel" hidden>
-        <h2>Crop mask</h2>
-        <div class="row"><span>Crop</span><select id="crop"><option value="">none</option></select></div>
-        <div class="row"><span>Share of crop area kept</span><select id="keep">
-          <option value="50">50%</option><option value="75">75%</option><option value="90" selected>90%</option><option value="95">95%</option><option value="99">99%</option></select></div>
-        <div class="status" id="crop-status"></div>
+      <div class="panel">
+        <h2>Masks</h2>
+        <div class="row"><span>Soil texture</span><select id="tex"><option value="0">all</option></select></div>
+        <div id="crop-rows" hidden>
+          <div class="row"><span>Crop</span><select id="crop"><option value="">none</option></select></div>
+          <div class="row"><span>Share of crop area kept</span><select id="keep">
+            <option value="50">50%</option><option value="75">75%</option><option value="90" selected>90%</option><option value="95">95%</option><option value="99">99%</option></select></div>
+          <div class="status" id="crop-status"></div>
+        </div>
       </div>
       <div class="panel">
         <h2>Download</h2>
@@ -58,12 +61,14 @@
     <li><b>Macrozones.</b> k-means on the macro layers.</li>
     <li><b>Microzones</b> (optional). k-means on the micro layers within each macrozone, so every microzone sits inside one macrozone.</li>
     <li><b>Clean small patches</b> (optional). A 3 × 3 or 5 × 5 km majority filter removes isolated pixels.</li>
-    <li><b>Crop mask</b> (optional). Keeps only the counties where a crop is grown. The zones do not change.</li>
+    <li><b>Masks</b> (optional). Keep only one soil texture class, or the counties where a crop is grown. The zones do not change.</li>
   </ol>
   <h4>Number of zones</h4>
   <p>The silhouette score (−1 to 1) measures how well separated the zones are; <i>auto</i> picks the highest. Kansas climate is a smooth gradient, so macro scores are often nearly flat, and the number of zones is then a choice of detail.</p>
-  <h4>Crop mask</h4>
-  <p>Counties are ranked by crop area, and the largest are kept until together they hold the chosen share of the Kansas crop area. Other counties are greyed out and left out of the table and downloads. The crop % column assumes the crop is spread evenly within each county. Crop data: see <a class="link" data-open="dlg-layers">Layers</a>.</p>
+  <h4>Masks</h4>
+  <p>Masked areas are greyed out and left out of the table and downloads. Both masks can be used together.</p>
+  <p><b>Soil texture:</b> the USDA texture class of each pixel, from its 0–60 cm sand and clay.</p>
+  <p><b>Crop:</b> counties are ranked by crop area, and the largest are kept until together they hold the chosen share of the Kansas crop area. The crop % column assumes the crop is spread evenly within each county. Crop data: see <a class="link" data-open="dlg-layers">Layers</a>.</p>
   <h4>Zone codes and colours</h4>
   <p>Codes are macrozone.microzone (for example 2.1), numbered from low to high by the first layer of each step. Each macrozone has its own hue, and its microzones are shades of it.</p>
   <h4>Downloads</h4>

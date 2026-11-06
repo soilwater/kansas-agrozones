@@ -8,7 +8,7 @@ Zoning is hierarchical:
 
 Any layer can go in either step. With no micro layers, all chosen layers are clustered together in one step. Layers are z-scored over the state. Silhouette scores for each number of zones are shown as a guide.
 
-An optional **crop mask** then keeps only the counties where a crop is grown: counties are ranked by their area of the crop, and the largest are kept until together they hold a chosen share (50–99%) of the Kansas area of that crop. The zones themselves are still made from the whole state, so a breeder can zone Kansas once and then look only at, say, the counties that grow 90% of the state's winter wheat. Crops: winter wheat, corn, soybeans, grain sorghum, alfalfa and rangeland.
+An optional **crop mask** then keeps only the counties where a crop is grown: counties are ranked by their area of the crop, and the largest are kept until together they hold a chosen share (50–99%) of the Kansas area of that crop. The zones themselves are still made from the whole state, so a breeder can zone Kansas once and then look only at, say, the counties that grow 90% of the state's winter wheat. Crops: winter wheat, corn, soybeans, grain sorghum, alfalfa and rangeland. A **soil texture mask** keeps only the pixels of one USDA texture class, worked out from each pixel's 0–60 cm sand and clay. The two masks can be combined.
 
 The approach follows Sexton-Bowser, Roozeboom and Patrignani (2026), *Agricultural and Forest Meteorology* 378, 110999, https://doi.org/10.1016/j.agrformet.2025.110999.
 
